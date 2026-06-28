@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+websockets>=12.0
+curl_cffi>=0.7
+python-dotenv>=1.0
+streamlink>=6.7
+# Subtitles (approved clips). Optional: app runs without it, captions just won't.
+faster-whisper>=1.0

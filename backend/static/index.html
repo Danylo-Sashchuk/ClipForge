@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clip Automation — Live</title>
+<style>
+  :root{
+    --bg:#0d0f13; --panel:#15181f; --panel2:#1c2029; --line:#262b36;
+    --text:#e7eaf0; --muted:#8b93a3; --accent:#53d769; --accent2:#3aa0ff;
+    --warn:#ffb84d; --bad:#ff5c5c; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(13,15,19,.92);
+    backdrop-filter:blur(8px);z-index:20}
+  .brand{font-weight:700;letter-spacing:.3px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#555;display:inline-block;margin:0 5px}
+  .dot.on{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:13px;color:var(--muted)}
+  .pill b{color:var(--text)}
+  main{max-width:1240px;margin:0 auto;padding:22px;display:grid;grid-template-columns:320px 1fr;gap:22px}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 14px}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--panel2);border-radius:10px;padding:11px}
+  .stat .n{font-size:21px;font-weight:700}
+  .stat .l{font-size:11px;color:var(--muted)}
+  .meter{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;margin-top:6px}
+  .meter > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .4s}
+  .meter.hot > i{background:linear-gradient(90deg,#ff9d3a,var(--bad))}
+  .feed{display:flex;flex-direction:column;gap:7px;max-height:300px;overflow:auto}
+  .feed .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:8px 10px;
+    background:var(--panel2);border-radius:8px;border-left:3px solid var(--accent2)}
+  .feed .t{color:var(--muted);font-variant-numeric:tabular-nums}
+  .feed .s{font-weight:700;color:var(--accent)}
+
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .tab{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;transition:.15s}
+  .tab:hover{border-color:var(--muted)}
+  .tab.active{background:var(--panel2);color:var(--text);border-color:var(--accent2)}
+  .tab .c{display:inline-block;min-width:18px;text-align:center;margin-left:6px;font-size:11px;
+    background:var(--panel2);border-radius:999px;padding:1px 6px;color:var(--muted)}
+  .tab.active .c{background:#0d0f13;color:var(--text)}
+
+  .banner{display:none;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;
+    background:linear-gradient(90deg,#15324a,#1c2029);border:1px solid var(--accent2);
+    border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+  .banner.show{display:flex}
+  .banner b{color:var(--accent2)}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+  .gallery.hidden{display:none}
+  .clip{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+    display:flex;flex-direction:column}
+  .clip[data-status="pending"]{border-color:#3a3f1f}
+  .clip[data-status="approved"]{border-color:#234d2c}
+  .clip[data-status="rejected"]{border-color:#4d2323}
+  .clip[data-status="deleted"]{border-color:#33373f;opacity:.8}
+  .clip video{width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover}
+  .clip .body{padding:12px;display:flex;flex-direction:column;gap:9px}
+  .clip .top{display:flex;justify-content:space-between;align-items:center}
+  .tag{background:var(--panel2);border-radius:6px;padding:3px 8px;font-size:12px;text-transform:capitalize}
+  .cc{background:#234d2c;color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700}
+  .score{font-weight:800;font-size:18px}
+  .reason{font-size:12px;color:var(--muted)}
+  .title-in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);padding:8px 10px;font-size:13px}
+  .title-in:focus{outline:none;border-color:var(--accent2)}
+  .btns{display:flex;flex-wrap:wrap;gap:6px}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+    border-radius:8px;padding:6px 10px;font-size:12px;transition:.15s}
+  button:hover{border-color:var(--muted)}
+  button:disabled{opacity:.5;cursor:default}
+  button.ok:hover{background:#1c3a22;border-color:var(--accent)}
+  button.no:hover{background:#3a1c1c;border-color:var(--bad)}
+  button.dl:hover{background:#15324a;border-color:var(--accent2)}
+  button.cap:hover{background:#3a3320;border-color:var(--warn)}
+  .capstat{font-size:12px;color:var(--warn);display:flex;align-items:center;gap:7px}
+  .spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--warn);
+    border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{color:var(--muted);text-align:center;padding:40px;border:1px dashed var(--line);border-radius:var(--radius)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:13px;opacity:0;transition:.3s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">◍ Clip&nbsp;Automation</span>
+  <span class="pill"><span id="liveDot" class="dot"></span><b id="chName">—</b></span>
+  <span class="pill">chat<span id="chatDot" class="dot"></span><b id="chatState">offline</b></span>
+  <span class="pill">viewers <b id="viewers">—</b></span>
+  <span class="pill">uptime <b id="uptime">0m</b></span>
+  <span style="flex:1"></span>
+  <span class="pill" id="wsState">connecting…</span>
+</header>
+
+<main>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="card">
+      <h2>Stats</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="n" id="sToday">0</div><div class="l">clips today</div></div>
+        <div class="stat"><div class="n" id="sTotal">0</div><div class="l">total clips</div></div>
+        <div class="stat"><div class="n" id="sApproved">0</div><div class="l">approved</div></div>
+        <div class="stat"><div class="n" id="sAvg">0</div><div class="l">avg score</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:16px 0 6px">
+        <span>live chat intensity</span><span id="liveScore">0</span>
+      </div>
+      <div class="meter" id="meter"><i id="meterFill"></i></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px"><span id="vel">0</span> msgs/sec</div>
+    </section>
+
+    <section class="card">
+      <h2>Trigger Feed</h2>
+      <div class="feed" id="feed"><div class="empty" style="padding:20px">waiting for moments…</div></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="tabs">
+      <div class="tab active" data-tab="pending">New <span class="c" id="cnt-pending">0</span></div>
+      <div class="tab" data-tab="approved">Approved <span class="c" id="cnt-approved">0</span></div>
+      <div class="tab" data-tab="rejected">Rejected <span class="c" id="cnt-rejected">0</span></div>
+      <div class="tab" data-tab="deleted">Bin <span class="c" id="cnt-deleted">0</span></div>
+    </div>
+
+    <div class="banner" id="banner"><span><b id="bannerN">0</b> new clips waiting</span><span>▼ click to show</span></div>
+
+    <div class="gallery" id="gal-pending"></div>
+    <div class="gallery hidden" id="gal-approved"></div>
+    <div class="gallery hidden" id="gal-rejected"></div>
+    <div class="gallery hidden" id="gal-deleted"></div>
+    <div class="empty" id="emptyMsg">No clips in this tab yet.</div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clips = new Map();      // id -> data (only clips that are placed/visible)
+const cards = new Map();      // id -> element
+let pendingNew = [];          // buffered live arrivals for the New tab
+let activeTab = 'pending';
+let channelName = '';
+let startedAt = Date.now()/1000;
+
+const TAB_OF = {pending:'pending', approved:'approved', rejected:'rejected', deleted:'deleted'};
+const tabOf = s => TAB_OF[s] || 'pending';
+const galOf = s => $('gal-' + tabOf(s));
+const sanitize = s => (s||'').trim().replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'clip';
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1900);}
+const fmtTime = ts => new Date(ts*1000).toLocaleTimeString();
+function fmtUptime(s){s=Math.max(0,s|0);const h=s/3600|0,m=(s%3600)/60|0;return h?`${h}h ${m}m`:`${m}m`;}
+function defaultTitle(c){return `${channelName||'clip'} ${c.trigger} ${new Date(c.created_at*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;}
+
+function applyStatus(st){
+  channelName = st.channel || channelName;
+  $('chName').textContent = st.channel || '—';
+  $('liveDot').className = 'dot ' + (st.is_live?'on':'');
+  $('chatDot').className = 'dot ' + (st.chat_connected?'on':'');
+  $('chatState').textContent = st.chat_connected?'connected':'offline';
+  $('viewers').textContent = st.viewers ?? '—';
+  $('sToday').textContent = st.clips_today ?? 0;
+  $('sTotal').textContent = st.total ?? 0;
+  $('sApproved').textContent = st.approved ?? 0;
+  $('sAvg').textContent = st.avg_score ?? 0;
+  if(st.started_at) startedAt = st.started_at;
+}
+function setMeter(score){$('meterFill').style.width=Math.min(100,score)+'%';
+  $('meter').className='meter'+(score>=72?' hot':'');$('liveScore').textContent=score;}
+
+function addFeed(ev){
+  const feed=$('feed'); if(feed.querySelector('.empty')) feed.innerHTML='';
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML=`<span><b style="text-transform:capitalize">${ev.trigger}</b>
+    <span style="color:var(--muted)"> · ${ev.reason||''}</span></span>
+    <span><span class="s">${ev.score}</span> <span class="t">${fmtTime(ev.timestamp)}</span></span>`;
+  feed.prepend(row);
+  while(feed.children.length>40) feed.removeChild(feed.lastChild);
+}
+
+// ---- cards ----
+function ensureCard(c){
+  let el = cards.get(c.id);
+  if(!el){
+    el = document.createElement('div');
+    el.className='clip'; el.id='clip-'+c.id;
+    const v=document.createElement('video'); v.controls=true; v.preload='metadata'; v.src=c.url;
+    const body=document.createElement('div'); body.className='body';
+    el.appendChild(v); el.appendChild(body);
+    cards.set(c.id, el);
+  }
+  return el;
+}
+
+function renderBody(c){
+  const el=cards.get(c.id); if(!el) return;
+  const body=el.querySelector('.body');
+  const st=c.status;
+  let html = `<div class="top">
+      <span class="tag">${c.trigger} · ${(c.duration||0)|0}s</span>
+      <span style="display:flex;gap:6px;align-items:center">
+        ${c.has_captions?'<span class="cc">CC</span>':''}
+        <span class="score">${c.score}</span>
+      </span></div>
+    <div class="reason">${c.reason||''} · ${fmtTime(c.created_at)}</div>`;
+
+  if(st==='approved'){
+    html += `<input class="title-in" type="text" placeholder="clip title…" value="${(c.title||defaultTitle(c)).replace(/"/g,'&quot;')}">`;
+    html += `<div class="capslot"></div>`;
+  }
+
+  html += `<div class="btns">`;
+  if(st==='pending'){
+    html += `<button class="ok" data-a="approve">✓ Approve</button>
+             <button class="no" data-a="reject">✕ Reject</button>
+             <button class="no" data-a="delete">🗑 Bin</button>`;
+  } else if(st==='approved'){
+    html += `<button class="no" data-a="reject">✕ Reject</button>
+             <button class="no" data-a="delete">🗑 Bin</button>`;
+  } else if(st==='rejected'){
+    html += `<button class="ok" data-a="approve">✓ Approve</button>
+             <button class="no" data-a="delete">🗑 Bin</button>`;
+  } else if(st==='deleted'){
+    html += `<button class="ok" data-a="restore">↩ Restore</button>
+             <button class="no" data-a="purge">🔥 Delete forever</button>`;
+  }
+  html += `<button class="dl" data-a="download">⬇ Download</button>`;
+  html += `</div>`;
+  body.innerHTML = html;
+
+  // wire buttons
+  body.querySelectorAll('button').forEach(b=>{
+    const a=b.dataset.a;
+    if(a==='download') b.onclick=()=>download(c);
+    else b.onclick=()=>action(c.id,a);
+  });
+
+  // approved extras: title + captions
+  if(st==='approved'){
+    const inp=body.querySelector('.title-in');
+    const save=()=>setTitle(c.id, inp.value);
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){inp.blur();}});
+    inp.addEventListener('blur',save);
+    renderCaptionSlot(c);
+  }
+}
+
+function renderCaptionSlot(c){
+  const el=cards.get(c.id); if(!el) return;
+  const slot=el.querySelector('.capslot'); if(!slot) return;
+  const state=c._cap||'';
+  if(state==='transcribing'||state==='burning'){
+    slot.innerHTML=`<div class="capstat"><span class="spin"></span>${state==='burning'?'Burning subtitles…':'Transcribing audio…'}</div>`;
+  } else if(c.has_captions){
+    slot.innerHTML=`<div class="btns">
+      <button class="cap" data-cap="toggle">${c._showing==='captioned'?'Show original':'Show captions'}</button>
+      <button class="cap" data-cap="regen">↻ Redo subtitles</button></div>`;
+    slot.querySelector('[data-cap="toggle"]').onclick=()=>toggleCaptions(c);
+    slot.querySelector('[data-cap="regen"]').onclick=()=>genCaptions(c.id);
+  } else {
+    slot.innerHTML=`<div class="btns"><button class="cap" data-cap="gen">✦ Generate subtitles</button></div>`;
+    slot.querySelector('[data-cap="gen"]').onclick=()=>genCaptions(c.id);
+  }
+}
+
+function placeCard(c, prepend){
+  clips.set(c.id, c);
+  const el=ensureCard(c);
+  renderBody(c);
+  const gal=galOf(c.status);
+  if(el.dataset.status!==c.status || el.parentElement!==gal){
+    if(prepend && gal.firstChild) gal.insertBefore(el, gal.firstChild);
+    else gal.appendChild(el);
+  }
+  el.dataset.status=c.status;
+  el.setAttribute('data-status', c.status);
+  updateCounts();
+}
+
+function removeCard(id){
+  const el=cards.get(id); if(el) el.remove();
+  cards.delete(id); clips.delete(id); updateCounts();
+}
+
+function updateCounts(){
+  const n={pending:0,approved:0,rejected:0,deleted:0};
+  clips.forEach(c=>{n[tabOf(c.status)]++;});
+  for(const k in n) $('cnt-'+k).textContent=n[k];
+  const active=galOf(activeTab==='pending'?'pending':activeTab);
+  $('emptyMsg').style.display = (n[activeTab]===0)?'block':'none';
+}
+
+// ---- actions ----
+async function action(id,a){
+  try{ await fetch(`/api/clips/${id}/${a}`,{method:'POST'}); }
+  catch(e){ toast('Action failed'); }
+  // UI updates arrive via the websocket echo (clip-updated / clip-purged)
+}
+async function setTitle(id,value){
+  const c=clips.get(id); if(c) c.title=value;
+  try{ await fetch(`/api/clips/${id}/title`,{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({title:value})}); toast('Title saved'); }
+  catch(e){ toast('Could not save title'); }
+}
+async function genCaptions(id){
+  const c=clips.get(id); if(!c) return;
+  c._cap='transcribing'; renderCaptionSlot(c);
+  try{ await fetch(`/api/clips/${id}/captions`,{method:'POST'}); }
+  catch(e){ c._cap=''; renderCaptionSlot(c); toast('Could not start captions'); }
+}
+function toggleCaptions(c){
+  const el=cards.get(c.id); if(!el) return;
+  const v=el.querySelector('video');
+  if(c._showing==='captioned'){ c._showing='original'; v.src=c.url; }
+  else { c._showing='captioned'; v.src=c.captioned_url; }
+  v.load(); renderCaptionSlot(c);
+}
+function download(c){
+  const useCap = c.has_captions && c.captioned_url && c._showing!=='original';
+  const url = useCap ? c.captioned_url : c.url;
+  const name = sanitize(c.title || defaultTitle(c)) + (useCap?'_captioned':'') + '.mp4';
+  const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Downloading…');
+}
+
+// ---- tabs + banner ----
+function switchTab(key){
+  activeTab=key;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===key));
+  ['pending','approved','rejected','deleted'].forEach(k=>{
+    const g=$('gal-'+k); g.classList.toggle('hidden', k!==key);
+    if(k!==key) g.querySelectorAll('video').forEach(v=>v.pause()); // no background audio
+  });
+  updateCounts();
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+
+function bumpBanner(){
+  const b=$('banner');
+  if(pendingNew.length){ $('bannerN').textContent=pendingNew.length; b.classList.add('show'); }
+  else b.classList.remove('show');
+}
+$('banner').onclick=()=>{
+  // reveal newest first; doesn't disturb anything you're already watching
+  pendingNew.slice().reverse().forEach(c=>placeCard(c, true));
+  pendingNew=[]; bumpBanner();
+};
+
+// ---- load + websocket ----
+async function loadClips(){
+  try{
+    const arr=await (await fetch('/api/clips')).json();
+    // oldest first so newest ends up on top after appends
+    arr.slice().reverse().forEach(c=>{ if(c.has_captions) c._showing='captioned'; placeCard(c,false); });
+  }catch(e){}
+  updateCounts();
+}
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  const ws=new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen=()=>{$('wsState').textContent='● live';$('wsState').style.color='var(--accent)';};
+  ws.onclose=()=>{$('wsState').textContent='● reconnecting';$('wsState').style.color='var(--warn)';setTimeout(connect,2000);};
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    switch(m.event){
+      case 'stream-status': applyStatus(m.status); break;
+      case 'chat-tick': setMeter(m.score||0); $('vel').textContent=(m.velocity||0).toFixed(1); break;
+      case 'trigger-fired': addFeed(m); break;
+      case 'clip-created':
+        pendingNew.push(m.clip); bumpBanner(); toast('New clip captured'); break;
+      case 'clip-updated': {
+        const c=clips.get(m.id); if(!c) break;
+        if(m.status!==undefined){ c.status=m.status; placeCard(c,true); }
+        if(m.title!==undefined){ c.title=m.title;
+          const inp=cards.get(m.id)?.querySelector('.title-in');
+          if(inp && document.activeElement!==inp) inp.value=m.title; }
+        break; }
+      case 'captioning': { const c=clips.get(m.id); if(c){ c._cap=m.stage; renderCaptionSlot(c);} break; }
+      case 'captioned-ready': {
+        const c=clips.get(m.id); if(c){ c._cap=''; c.has_captions=true;
+          c.captioned_url=m.captioned_url||c.captioned_url; c.srt_url=m.srt_url||c.srt_url;
+          c._showing='captioned';
+          const v=cards.get(m.id)?.querySelector('video');
+          if(v && c.captioned_url){ v.src=c.captioned_url; v.load(); }
+          renderBody(c); toast('Subtitles ready'); }
+        break; }
+      case 'captions-failed': {
+        const c=clips.get(m.id); if(c){ c._cap=''; renderCaptionSlot(c);} 
+        toast('Captions failed: '+(m.error||'')); break; }
+      case 'clip-purged': removeCard(m.id); break;
+      case 'info': toast(m.msg); break;
+      case 'clip-failed': toast('Clip failed: '+(m.error||'')); break;
+    }
+  };
+}
+
+setInterval(()=>{$('uptime').textContent=fmtUptime(Date.now()/1000-startedAt);},1000);
+loadClips();
+connect();
+</script>
+</body>
+</html>
